@@ -4,8 +4,8 @@
   "single-instance": true,
   "window": {
     "position": "center",
-    "width": 600,
-    "height": 400,
+    "width": 1000,
+    "height": 800,
     "frame" : true
   },
   "webkit": {

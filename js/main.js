@@ -1,11 +1,8 @@
-var child;
-var fails = 0;
-var goBinary = "./connan"; 
 var os = require('os');
 
-if (os.platform().isWindows){
-    goBinary+=".exe";
-}
+var child;
+var fails = 0;
+var goBinary = "./connan";
 
 function setPage(html) {
     const container = document.getElementById("app");
@@ -37,7 +34,7 @@ function start_process() {
 
         if (data.charAt(0) == "$") {
             data = data.substr(1);
-            eval(data)
+            eval(data);
         } else {
             setPage(data);
         }
@@ -120,6 +117,15 @@ function avoid_reload() {
         close();
     }
     sessionStorage.setItem("loaded", "true");
+}
+
+function sidebar_collapse() {
+    $('#sidebar').toggleClass('active');
+    $('#sidebarCollapse').toggleClass('active');
+};
+
+if (os.platform().isWindows) {
+    goBinary += ".exe";
 }
 
 avoid_reload();
