@@ -17,11 +17,6 @@ type app struct {
 	pages   map[string]string
 }
 
-var options struct {
-	libFolder string
-	tesseract string
-}
-
 func (a *app) loadPage(name string) error {
 	html, err := ioutil.ReadFile(name + ".html")
 	if err != nil {
@@ -40,7 +35,7 @@ func (a *app) loadPages(names ...string) error {
 	}
 	return nil
 }
-func (a *app) init() error {
+func (a *app) initUI() error {
 	a.pages = make(map[string]string)
 	err := a.loadPages("body", "search", "indexer", "backup")
 	if err != nil {
@@ -63,7 +58,17 @@ func (a *app) init() error {
 }
 
 func (a *app) run() error {
-	err := a.init()
+	defer options.save()
+	err := options.load()
+	if err != nil {
+		log.Println(err)
+	}
+	err = indexer.Open(options.LibFolder)
+	if err != nil {
+		return err
+	}
+	defer indexer.Close()
+	err = a.initUI()
 	if err != nil {
 		return err
 	}
@@ -74,8 +79,8 @@ func (a *app) run() error {
 func (a *app) pageIndexerClicked(sender *gowd.Element, event *gowd.EventElement) {
 	a.content.RemoveElements()
 	a.content.AddHTML(a.pages["indexer"], a.em)
-	a.em["inputConnanFolder"].SetValue(options.libFolder)
-	a.em["inputTesseract"].SetValue(options.tesseract)
+	a.em["inputConnanFolder"].SetValue(options.LibFolder)
+	a.em["inputTesseract"].SetValue(options.Tesseract)
 	a.em["indexerStart"].OnEvent(gowd.OnClick, a.indexerStartClicked)
 }
 
@@ -128,8 +133,8 @@ func (a *app) handleSearchRequest(sender *gowd.Element, event *gowd.EventElement
 }
 
 func (a *app) indexerStartClicked(sender *gowd.Element, event *gowd.EventElement) {
-	options.libFolder = a.em["inputConnanFolder"].GetValue()
-	options.tesseract = a.em["inputTesseract"].GetValue()
+	options.LibFolder = a.em["inputConnanFolder"].GetValue()
+	options.Tesseract = a.em["inputTesseract"].GetValue()
 	err := indexer.Start()
 	if err != nil {
 		gowd.Alert(fmt.Sprintf("Error: %v", err))

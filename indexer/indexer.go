@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/blevesearch/bleve"
-	"github.com/blevesearch/bleve/mapping"
 )
 
 var context struct {
@@ -15,7 +14,6 @@ var context struct {
 	opened     bool
 	libFolder  string
 	blevePath  string
-	mapping    mapping.IndexMapping
 	bleveIndex bleve.Index
 }
 
@@ -25,10 +23,17 @@ func Open(libFolder string) error {
 		return errors.New("Indexer already opened, close first")
 	}
 	context.blevePath = filepath.Join(libFolder, "connan.db")
-	log.Printf("Indexing to %v", context.blevePath)
-	context.mapping = bleve.NewIndexMapping()
-	var err error
-	context.bleveIndex, err = bleve.New(context.blevePath, context.mapping)
+	_, err := os.Stat(context.blevePath)
+	if err == nil {
+		log.Printf("Opening index at '%v'", context.blevePath)
+		context.bleveIndex, err = bleve.Open(context.blevePath)
+	} else {
+		log.Printf("Creating index at '%v'", context.blevePath)
+		context.bleveIndex, err = bleve.New(context.blevePath, bleve.NewIndexMapping())
+	}
+	if err == nil {
+		context.opened = true
+	}
 	return err
 }
 
@@ -37,6 +42,7 @@ func Close() error {
 	if !context.opened {
 		return nil
 	}
+	context.opened = false
 	return context.bleveIndex.Close()
 }
 
@@ -57,5 +63,6 @@ func Start() error {
 }
 
 func walk(path string, info os.FileInfo, err error) error {
+	log.Println(path)
 	return nil
 }
