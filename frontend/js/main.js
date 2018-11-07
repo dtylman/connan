@@ -19,6 +19,10 @@ function body_message(msg) {
 }
 
 function start_process() {
+    if (os.platform().isWindows) {
+        goBinary += ".exe";
+    }
+    
     body_message("Loading...");
 
     const spawn = require('child_process').spawn;
@@ -121,12 +125,16 @@ function avoid_reload() {
 
 function sidebar_collapse() {
     $('#sidebar').toggleClass('active');
-    $('#sidebarCollapse').toggleClass('active');
+    $('#button-sidebar-collapse').toggleClass('active');
 };
 
-if (os.platform().isWindows) {
-    goBinary += ".exe";
+function maximize_window(){
+    var ngui = require('nw.gui');
+    var nwin = ngui.Window.get();
+    nwin.show();
+    nwin.maximize();
 }
 
 avoid_reload();
+maximize_window();
 start_process();

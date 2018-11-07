@@ -1,12 +1,13 @@
 {
   "name": "connan",
-  "main": "index.html",
+  "main": "frontend/index.html",
   "single-instance": true,
-  "window": {
-    "position": "center",
+  "window": {        
+    "frame" : true,    
+    "icon" : "frontend/connan-icon.png",
     "width": 1000,
-    "height": 800,
-    "frame" : true
+    "height": 600,
+    "position": "mouse"
   },
   "webkit": {
     "plugin": true
