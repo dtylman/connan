@@ -3,18 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 )
 
 func main() {
-	logfile, err := os.Create("connan.log")
+	err := AppLog.Open()
 	if err != nil {
-		log.SetOutput(os.Stderr)
-		log.Println(err)
-	} else {
-		defer logfile.Close()
-		log.SetOutput(logfile)
+		panic(err)
 	}
+	defer AppLog.Close()
 	a, err := NewApp()
 	if err != nil {
 		fmt.Println(err)

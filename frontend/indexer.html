@@ -1,7 +1,9 @@
 <div>
-    <div class="card">
+    <div class="card my-3">
+        <div class="card-header">
+            Indexer Settings
+        </div>
         <div class="card-body">
-            <h5 class="card-title">Settings</h5>
             <div class="form-group">
                 <label>Root Folder:</label>
                 <input type="text" class="form-control-file" id="input-connan-folder">
@@ -15,14 +17,22 @@
             <button class="btn btn-primary" id="button-indexer-settings-save">Save</button>
         </div>
     </div>
-    <hr/>
-    <div class="card">
+    <div class="card my-3">
+        <div class="card-header">
+            Progress
+        </div>
         <div class="card-body">
-            <h5 class="card-title">Progress</h5>
-            <button class="btn btn-primary" id="button-indexer-start">Start</button>
-            <div class="progress">
-                <div class="progress-bar" role="progressbar" style="width: 0%;" id="progress-bar-indexer">0%</div>
+            <button class="btn btn-primary" id="button-indexer-start">Start</button>&nbsp;
+            <button class="btn btn-primary" id="button-indexer-stop">Stop</button>
+            <div class="my-4">
+                <h6 class="card-subtitle mb-2 text-muted" id="progress-label-indexer"></h6>
+                <p class="card-text">
+                    <div class="progress">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 0%;" id="progress-bar-indexer">0%</div>
+                    </div>
+                </p>
             </div>
         </div>
     </div>
+
 </div>

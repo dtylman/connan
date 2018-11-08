@@ -38,3 +38,10 @@ func (q *Queue) Clear() {
 	defer q.mutex.Unlock()
 	q.items = make([]string, 0)
 }
+
+//Len returns the number of items in the queue
+func (q *Queue) Len() int {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return len(q.items)
+}

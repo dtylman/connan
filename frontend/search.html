@@ -1,8 +1,17 @@
-<div class="card">
-    <div class="card-body container-fluid">            
-        <h5 class="card-title">Search</h5>        
-        <input class="form-control" type="search" id="input-search" placeholder="Search..." value="" onkeydown="if (event.keyCode == 13) document.getElementById('button-search-go').click();">
-        <span></span>
-        <button type="button" class="btn btn-primary" id="button-search-go">Go</button>
+<div>
+    <div class="card my-3">
+        <div class="card-header">Search</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-11">
+                    <input class="form-control" type="search" id="input-search" placeholder="Search..." value=""
+                        onkeydown="if (event.keyCode == 13) document.getElementById('button-search-go').click();">
+                </div>
+                <div class="col col-md-1">
+                    <button type="button" class="form-control btn btn-primary" id="button-search-go">Go</button>
+                </div>
+            </div>
+        </div>
     </div>
+    <div id="div-search-results"></div>
 </div>

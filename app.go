@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"io/ioutil"
 	"log"
+	"path/filepath"
+	"time"
 
+	"github.com/blevesearch/bleve"
 	"github.com/dtylman/gowd"
+	"github.com/dtylman/gowd/bootstrap"
 )
 
 //UI holds the application UI
@@ -20,8 +25,9 @@ type UI struct {
 
 //App is the application
 type App struct {
-	ui     UI
-	config Options
+	ui      UI
+	config  Options
+	indexer *Indexer
 }
 
 //NewApp creates a new application
@@ -31,10 +37,10 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	// a.indexer, err = db.NewIndexer(filepath.Join(a.config.LibFolder, "connandb"))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	a.indexer, err = NewIndexer(filepath.Join(a.config.LibFolder, "connandb"))
+	if err != nil {
+		return nil, err
+	}
 	a.ui.em = gowd.NewElementMap()
 
 	a.ui.body, err = a.loadPage("frontend/body.html")
@@ -54,6 +60,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 	a.ui.em["button-indexer-start"].OnEvent(gowd.OnClick, a.buttonIndexerStartClicked)
+	a.ui.em["button-indexer-stop"].OnEvent(gowd.OnClick, a.buttonIndexerStopClicked)
 	a.ui.em["button-indexer-settings-save"].OnEvent(gowd.OnClick, a.buttonIndexerSaveClicked)
 	a.ui.pageSearch, err = a.loadPage("frontend/search.html")
 	if err != nil {
@@ -64,11 +71,39 @@ func NewApp() (*App, error) {
 	a.ui.content = a.ui.em["content"]
 	a.pageSearchClicked(nil, nil)
 
+	go a.progressUpdate()
 	return a, nil
 }
 
-func (a *App) buttonIndexerStartClicked(sender *gowd.Element, event *gowd.EventElement) {
+//progressUpdate updates progress bar when they are displayed
+func (a *App) progressUpdate() {
+	var value, total int
+	var label string
+	for true {
+		time.Sleep(time.Second / 2)
+		ip := a.ui.content.Find("progress-label-indexer")
+		if ip != nil {
+			if a.indexer.worker.IsRunning() {
+				value = a.indexer.queued - a.indexer.db.Queue.Len()
+				total = a.indexer.queued
+				label = AppLog.Last
+				gowd.ExecJSNow(fmt.Sprintf("set_progress('progress-bar-indexer',%v,%v,'progress-label-indexer','%v');",
+					value, total, html.EscapeString(label)))
+			}
+		}
+	}
+}
 
+func (a *App) buttonIndexerStopClicked(sender *gowd.Element, event *gowd.EventElement) {
+	a.indexer.Stop()
+}
+
+func (a *App) buttonIndexerStartClicked(sender *gowd.Element, event *gowd.EventElement) {
+	err := a.indexer.Start(a.config.LibFolder)
+	if err != nil {
+		gowd.Alert(fmt.Sprintf("%v", err))
+		return
+	}
 }
 
 func (a *App) buttonIndexerSaveClicked(sender *gowd.Element, event *gowd.EventElement) {
@@ -99,10 +134,8 @@ func (a *App) close() {
 	if err != nil {
 		log.Println(err)
 	}
-	// err = a.indexer.Close()
-	// if err != nil {
-	// 	log.Println(err)
-	// }
+	a.indexer.Stop()
+	a.indexer.Close()
 }
 
 func (a *App) run() error {
@@ -127,65 +160,46 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 	term := input.GetValue()
 	input.AutoFocus()
 	input.SetValue("")
-	a.ui.content.AddElement(gowd.NewText(term))
 
-	// 	a.content.AddHTML(`<h2>0 Found</h2>
-	// <a href="#">lala</a>
-	// <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-	// 	dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex
-	// 	ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-	// 	fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-	// 	mollit anim id est laborum.</p></br>
-	// <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-	// 	dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex
-	// 	ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-	// 	fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-	// 	mollit anim id est laborum.</p>
-	// <div class="line"></div>
-	// <h2>Lorem Ipsum Dolor</h2>
-	// <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-	// 	dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex
-	// 	ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-	// 	fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-	// 	mollit anim id est laborum.</p>
-	// <div class="line"></div>
-	// <h2>Lorem Ipsum Dolor</h2>
-	// <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-	// 	dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex
-	// 	ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-	// 	fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-	// 	mollit anim id est laborum.</p>
-	// <div class="line"></div>
-	// <h3>Lorem Ipsum Dolor</h3>
-	// <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-	// 	dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex
-	// 	ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-	// 	fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
-	// 	mollit anim id est laborum.</p>
-	// </div>`, a.em)
-}
+	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(term))
+	req.Highlight = bleve.NewHighlightWithStyle("html")
+	sr, err := a.indexer.db.Bleve.Search(req)
+	if err != nil {
+		gowd.Alert(fmt.Sprintf("%v", err))
+		return
+	}
 
-func (a *App) indexerStartClicked(sender *gowd.Element, event *gowd.EventElement) {
-	// options.LibFolder = a.em["inputConnanFolder"].GetValue()
-	// options.Tesseract = a.em["inputTesseract"].GetValue()
-	// err := indexer.Start()
-	// if err != nil {
-	// 	gowd.Alert(fmt.Sprintf("Error: %v", err))
-	// }
-	// a.em["sidebar"].Hide()
-	// a.em["sidebarCollapse"].Hide()
-	// a.content.RemoveElements()
-	// stopBtn := bootstrap.NewButton(bootstrap.ButtonPrimary, "Stop")
-	// a.body.Disable()
-	// a.content.AddElement(stopBtn)
-	// go func() {
-	// 	for i := 0; i <= 100; i++ {
-	// 		time.Sleep(time.Second / 2)
-	// 		js := fmt.Sprintf(`document.getElementById('progress').style.width="%v%%";
-	// 	document.getElementById('progress').innerHTML = "%v%%";`, i, i)
-	// 		gowd.ExecJSNow(js)
-	// 	}
-	// }()
+	divRes := bootstrap.NewPanel(bootstrap.PanelDefault)
+	summary := fmt.Sprintf("%d matches, showing %d through %d, took %s\n", sr.Total, sr.Request.From+1, sr.Request.From+len(sr.Hits), sr.Took)
+	divRes.AddElement(gowd.NewStyledText(summary, gowd.Heading6))
+	for i, hit := range sr.Hits {
+		link := bootstrap.NewLinkButton(hit.ID)
+		header := bootstrap.NewElement("h4", "heading-small mb-4")
+		header.AddElement(gowd.NewText(fmt.Sprintf("#%v", i)))
+		header.AddHTML("&nbsp;", nil)
+		header.AddElement(link)
+		header.AddHTML("&nbsp;", nil)
+		header.AddElement(gowd.NewStyledText(fmt.Sprintf("(%f)", hit.Score), gowd.ItalicText))
+		dr := bootstrap.NewElement("div", "card-body", header)
+		//link.OnEvent(gowd.OnClick, a.buttonSearchClicked)
+		for fragmentField, fragments := range hit.Fragments {
+			dr.AddElement(gowd.NewStyledText(fragmentField, gowd.StrongText))
+			for _, fragment := range fragments {
+				dr.AddHTML(fragment, nil)
+			}
+		}
+		for otherFieldName, otherFieldValue := range hit.Fields {
+			if _, ok := hit.Fragments[otherFieldName]; !ok {
+				dr.AddElement(gowd.NewStyledText(otherFieldName, gowd.StrongText))
+				dr.AddElement(gowd.NewText(fmt.Sprintf("%v", otherFieldValue)))
+			}
+		}
+		divRes.AddElement(dr)
+		divRes.AddElement(gowd.NewElement("hr"))
+
+	}
+
+	a.ui.em["div-search-results"].SetElement(divRes.Element)
 }
 
 func (a *App) pageSearchClicked(sender *gowd.Element, event *gowd.EventElement) {

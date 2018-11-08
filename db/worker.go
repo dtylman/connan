@@ -67,10 +67,11 @@ func (w *Worker) work() {
 			doc, err := w.db.NewDocument(*item)
 			if err != nil {
 				log.Printf("Failed to create a document from '%v': '%v'", *item, err)
-			}
-			err = w.db.Save(doc)
-			if err != nil {
-				log.Printf("Failed to index %v: %v", doc, err)
+			} else {
+				err = w.db.Save(doc)
+				if err != nil {
+					log.Printf("Failed to index %v: %v", doc, err)
+				}
 			}
 		}
 	}

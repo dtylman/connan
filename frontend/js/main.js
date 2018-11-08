@@ -22,7 +22,7 @@ function start_process() {
     if (os.platform().isWindows) {
         goBinary += ".exe";
     }
-    
+
     body_message("Loading...");
 
     const spawn = require('child_process').spawn;
@@ -34,13 +34,16 @@ function start_process() {
     })
 
     rl.on('line', (data) => {
-        console.log(`Received: ${data}`);
-
-        if (data.charAt(0) == "$") {
-            data = data.substr(1);
-            eval(data);
-        } else {
-            setPage(data);
+        try {
+            console.log(`Received: ${data}`);
+            if (data.charAt(0) == "$") {
+                data = data.substr(1);
+                eval(data);
+            } else {
+                setPage(data);
+            }
+        } catch (ex) {
+            console.log(ex);
         }
     });
 
@@ -128,11 +131,28 @@ function sidebar_collapse() {
     $('#button-sidebar-collapse').toggleClass('active');
 };
 
-function maximize_window(){
+function maximize_window() {
     var ngui = require('nw.gui');
     var nwin = ngui.Window.get();
     nwin.show();
     nwin.maximize();
+}
+
+function set_progress(progress_id, value, total, label_id, text) {
+    pbar = document.getElementById(progress_id)
+    if (pbar != null) {
+        pbar.innerHTML = value + " / " + total;
+        if (total == 0) {
+            percentage = 0;
+        } else {
+            percentage = value * 100 / total ;
+        }
+        pbar.style.width = percentage + "%";
+    }
+    label = document.getElementById(label_id)
+    if (label != null) {
+        label.innerHTML = text
+    }
 }
 
 avoid_reload();

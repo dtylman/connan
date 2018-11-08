@@ -7,52 +7,69 @@ import (
 	"path/filepath"
 
 	"github.com/dtylman/connan/db"
+	"github.com/dtylman/connan/tesseract"
 )
+
+//IndexerOptions ...
+type IndexerOptions struct {
+	reindex bool
+}
 
 //Indexer is the connan indexer
 type Indexer struct {
-	queuing bool
+	queued  int
 	db      *db.DB
 	worker  *db.Worker
+	Options IndexerOptions
 }
 
 //NewIndexer returns a new indexer
-func NewIndexer(d *db.DB) (*Indexer, error) {
+func NewIndexer(dbPath string) (*Indexer, error) {
+	var err error
 	i := new(Indexer)
-	i.queuing = false
-	i.db = d
+	i.queued = 0
+	i.db, err = db.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	i.db.AddDocumentAnalyzer(tesseract.NewAnalyzer())
 	i.worker = db.NewWorker(i.db)
 	return i, nil
 }
 
 //Start ...
 func (i *Indexer) Start(root string) error {
-	if !i.queuing {
-		i.queuing = true
-		log.Println("Indexer started")
-		defer func() {
-			i.queuing = false
-			log.Println("Indexer stopped")
-		}()
-		i.worker.Start()
-		return filepath.Walk(root, i.walk)
+	if i.worker.IsRunning() {
+		return errors.New("Indexer running")
 	}
-	return nil
+	i.queued = 0
+	i.db.Queue.Clear()
+	log.Println("Indexer Started")
+	defer func() {
+		log.Printf("%v items queued", i.queued)
+	}()
+	i.worker.Start()
+	return filepath.Walk(root, i.walk)
 }
 
 func (i *Indexer) walk(path string, info os.FileInfo, err error) error {
-	if !i.queuing {
-		return errors.New("indexed stopped")
+	if !i.worker.IsRunning() {
+		return errors.New("Worker stopped")
 	}
 	if !info.IsDir() {
 		log.Printf("Queuing '%v'", path)
 		i.db.Queue.Add(path)
+		i.queued++
 	}
 	return nil
 }
 
 //Stop stop indexing
 func (i *Indexer) Stop() {
-	i.queuing = false
 	i.worker.Stop()
+}
+
+//Close closes the indexer
+func (i *Indexer) Close() error {
+	return i.db.Close()
 }

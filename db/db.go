@@ -50,6 +50,13 @@ func (db *DB) AddDocumentAnalyzer(a Analyzer) {
 //NewDocument ...
 func (db *DB) NewDocument(path string) (*Document, error) {
 	doc := new(Document)
+	doc.Path = path
+	doc.ID = path
+	var err error
+	doc.Mime, err = mimeType(path)
+	if err != nil {
+		log.Printf("Cannot get mime type for item '%v': %v", path, err)
+	}
 	for _, a := range db.analyzers {
 		err := a.Process(path, doc)
 		if err != nil {
@@ -63,4 +70,16 @@ func (db *DB) NewDocument(path string) (*Document, error) {
 func (db *DB) Save(doc *Document) error {
 	log.Printf("Saving '%v'", doc)
 	return db.Bleve.Index(doc.ID, doc)
+}
+
+//DocumentExists is true if document already exists
+func (db *DB) DocumentExists(path string) bool {
+	req := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{path}))
+	res, err := db.Bleve.Search(req)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	return res.Hits.Len() > 0
 }
