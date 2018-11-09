@@ -3,7 +3,9 @@ package db
 import (
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/asdine/storm"
 	"github.com/blevesearch/bleve"
 )
 
@@ -17,6 +19,7 @@ type Analyzer interface {
 type DB struct {
 	analyzers []Analyzer
 	Bleve     bleve.Index
+	Storm     *storm.DB
 	Queue     Queue
 }
 
@@ -24,11 +27,20 @@ type DB struct {
 func Open(path string) (*DB, error) {
 	db := new(DB)
 	log.Printf("Opening db at '%v'", path)
-	_, err := os.Stat(path)
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		return nil, err
+	}
+	db.Storm, err = storm.Open(filepath.Join(path, "storm.db"))
+	if err != nil {
+		return nil, err
+	}
+	blevepath := filepath.Join(path, "bleve")
+	_, err = os.Stat(blevepath)
 	if err == nil {
-		db.Bleve, err = bleve.Open(path)
+		db.Bleve, err = bleve.Open(blevepath)
 	} else {
-		db.Bleve, err = bleve.New(path, bleve.NewIndexMapping())
+		db.Bleve, err = bleve.New(blevepath, bleve.NewIndexMapping())
 	}
 	if err != nil {
 		return nil, err
@@ -39,6 +51,10 @@ func Open(path string) (*DB, error) {
 
 //Close closes the database
 func (db *DB) Close() error {
+	err := db.Storm.Close()
+	if err != nil {
+		return err
+	}
 	return db.Bleve.Close()
 }
 
@@ -51,7 +67,6 @@ func (db *DB) AddDocumentAnalyzer(a Analyzer) {
 func (db *DB) NewDocument(path string) (*Document, error) {
 	doc := new(Document)
 	doc.Path = path
-	doc.ID = path
 	var err error
 	doc.Mime, err = mimeType(path)
 	if err != nil {
@@ -69,17 +84,26 @@ func (db *DB) NewDocument(path string) (*Document, error) {
 //Save saves the doc in the DB
 func (db *DB) Save(doc *Document) error {
 	log.Printf("Saving '%v'", doc)
-	return db.Bleve.Index(doc.ID, doc)
+	err := db.Storm.Save(doc)
+	if err != nil {
+		return nil
+	}
+	return db.Bleve.Index(doc.Path, doc)
 }
 
 //DocumentExists is true if document already exists
 func (db *DB) DocumentExists(path string) bool {
-	req := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{path}))
-	res, err := db.Bleve.Search(req)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
+	var doc Document
+	err := db.Storm.One("Path", path, &doc)
+	return err == nil
+}
 
-	return res.Hits.Len() > 0
+//Document returns a document for path or nil if not found
+func (db *DB) Document(path string) *Document {
+	var doc Document
+	err := db.Storm.One("Path", path, &doc)
+	if err != nil {
+		return nil
+	}
+	return &doc
 }

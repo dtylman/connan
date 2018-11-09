@@ -24,14 +24,10 @@ type Indexer struct {
 }
 
 //NewIndexer returns a new indexer
-func NewIndexer(dbPath string) (*Indexer, error) {
-	var err error
+func NewIndexer(database *db.DB) (*Indexer, error) {
 	i := new(Indexer)
 	i.queued = 0
-	i.db, err = db.Open(dbPath)
-	if err != nil {
-		return nil, err
-	}
+	i.db = database
 	i.db.AddDocumentAnalyzer(tesseract.NewAnalyzer())
 	i.worker = db.NewWorker(i.db)
 	return i, nil

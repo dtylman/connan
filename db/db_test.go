@@ -25,8 +25,15 @@ func TestQueue(t *testing.T) {
 
 func TestDB_NewDocument(t *testing.T) {
 	db, err := Open("/tmp/connan.db")
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
 	defer db.Close()
-	doc, err := db.NewDocument("/tmp/connan.db/index_meta.json")
+	path := "db_test.go"
+	doc, err := db.NewDocument(path)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, doc.Mime)
+	err = db.Save(doc)
+	assert.NoError(t, err)
+	assert.True(t, db.DocumentExists(path))
+
 }

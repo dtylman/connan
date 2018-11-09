@@ -16,7 +16,7 @@ func TestNewIndexer(t *testing.T) {
 	err = i.Start("/tmp")
 	assert.Nil(t, err)
 	for i.worker.IsRunning() {
-		time.Sleep(5000)
+		time.Sleep(time.Second)
 		t.Log("worker is running...")
 	}
 }

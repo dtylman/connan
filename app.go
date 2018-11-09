@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	"github.com/dtylman/connan/db"
 	"github.com/dtylman/gowd"
 	"github.com/dtylman/gowd/bootstrap"
 )
@@ -28,6 +29,8 @@ type App struct {
 	ui      UI
 	config  Options
 	indexer *Indexer
+	db      *db.DB
+	results *bleve.SearchResult
 }
 
 //NewApp creates a new application
@@ -37,7 +40,11 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.indexer, err = NewIndexer(filepath.Join(a.config.LibFolder, "connandb"))
+	a.db, err = db.Open(a.config.DBFolder)
+	if err != nil {
+		return nil, err
+	}
+	a.indexer, err = NewIndexer(a.db)
 	if err != nil {
 		return nil, err
 	}
@@ -163,24 +170,32 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 
 	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(term))
 	req.Highlight = bleve.NewHighlightWithStyle("html")
-	sr, err := a.indexer.db.Bleve.Search(req)
+	var err error
+	a.results, err = a.indexer.db.Bleve.Search(req)
 	if err != nil {
 		gowd.Alert(fmt.Sprintf("%v", err))
 		return
 	}
 
-	divRes := bootstrap.NewPanel(bootstrap.PanelDefault)
-	summary := fmt.Sprintf("%d matches, showing %d through %d, took %s\n", sr.Total, sr.Request.From+1, sr.Request.From+len(sr.Hits), sr.Took)
-	divRes.AddElement(gowd.NewStyledText(summary, gowd.Heading6))
-	for i, hit := range sr.Hits {
-		link := bootstrap.NewLinkButton(hit.ID)
+	divresults := a.ui.em["div-search-results"]
+	divresults.RemoveElements()
+	summary := fmt.Sprintf("%d matches, showing %d through %d, took %s", a.results.Total, a.results.Request.From+1, a.results.Request.From+len(a.results.Hits), a.results.Took)
+	divresults.AddElement(gowd.NewStyledText(summary, gowd.Heading4))
+	for _, hit := range a.results.Hits {
+		doc := a.db.Document(hit.ID)
+		link := bootstrap.NewLinkButton(filepath.Base(hit.ID))
+		link.SetAttribute("onclick", fmt.Sprintf("nw.Shell.openItem('%v');", doc.Path))
 		header := bootstrap.NewElement("h4", "heading-small mb-4")
-		header.AddElement(gowd.NewText(fmt.Sprintf("#%v", i)))
-		header.AddHTML("&nbsp;", nil)
 		header.AddElement(link)
 		header.AddHTML("&nbsp;", nil)
 		header.AddElement(gowd.NewStyledText(fmt.Sprintf("(%f)", hit.Score), gowd.ItalicText))
 		dr := bootstrap.NewElement("div", "card-body", header)
+		img := gowd.NewElement("img")
+		img.SetClass("rounded pull-right img-thumbnail")
+		img.SetAttribute("style", "height: 100px; width: 100px")
+		img.SetAttribute("src", "file:///"+doc.Path)
+		dr.AddElement(img)
+
 		//link.OnEvent(gowd.OnClick, a.buttonSearchClicked)
 		for fragmentField, fragments := range hit.Fragments {
 			dr.AddElement(gowd.NewStyledText(fragmentField, gowd.StrongText))
@@ -194,12 +209,10 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 				dr.AddElement(gowd.NewText(fmt.Sprintf("%v", otherFieldValue)))
 			}
 		}
-		divRes.AddElement(dr)
-		divRes.AddElement(gowd.NewElement("hr"))
+		divresults.AddElement(dr)
+		divresults.AddElement(gowd.NewElement("hr"))
 
 	}
-
-	a.ui.em["div-search-results"].SetElement(divRes.Element)
 }
 
 func (a *App) pageSearchClicked(sender *gowd.Element, event *gowd.EventElement) {

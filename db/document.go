@@ -7,8 +7,7 @@ import (
 
 //Document ...
 type Document struct {
-	ID       string    `json:"ID"`
-	Path     string    `json:"path"`
+	Path     string    `json:"path" storm:"id"`
 	Content  string    `json:"content"`
 	Mime     string    `json:"mime"`
 	Analyzed time.Time `json:"analyzed"`

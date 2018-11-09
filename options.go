@@ -12,6 +12,7 @@ var OptionsFileName = "connan.config"
 // Options application options
 type Options struct {
 	LibFolder string `json:"libFolder"`
+	DBFolder  string `json:dbFolder`
 	Tesseract string `json:"tesseract"`
 }
 
