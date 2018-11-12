@@ -162,6 +162,52 @@ func (a *App) pageBackupClicked(sender *gowd.Element, event *gowd.EventElement) 
 	a.ui.content.SetElement(a.ui.pageBackup)
 }
 
+func (a *App) buttonSearchMoreClicked(sender *gowd.Element, event *gowd.EventElement) {
+	gowd.ExecJS(fmt.Sprintf(`$(window.scrollTo(0,%v))`, sender.GetValue()))
+	req := a.results.Request
+	req.From = req.From + a.results.Hits.Len()
+	var err error
+	a.results, err = a.indexer.db.Bleve.Search(req)
+	if err != nil {
+		gowd.Alert(fmt.Sprintf("%v", err))
+		return
+	}
+	divresults := a.ui.em["div-search-results"]
+
+	for _, hit := range a.results.Hits {
+		doc := a.db.Document(hit.ID)
+		link := bootstrap.NewLinkButton(filepath.Base(hit.ID))
+		link.SetAttribute("onclick", fmt.Sprintf("nw.Shell.openItem('%v');", doc.Path))
+		header := bootstrap.NewElement("h4", "heading-small mb-4")
+		header.AddElement(link)
+		header.AddHTML("&nbsp;", nil)
+		header.AddElement(gowd.NewStyledText(fmt.Sprintf("(%f)", hit.Score), gowd.ItalicText))
+		dr := bootstrap.NewElement("div", "card-body", header)
+		img := gowd.NewElement("img")
+		img.SetClass("rounded pull-right img-thumbnail")
+		img.SetAttribute("style", "height: 100px; width: 100px")
+		img.SetAttribute("src", "file:///"+doc.Path)
+		dr.AddElement(img)
+
+		//link.OnEvent(gowd.OnClick, a.buttonSearchClicked)
+		for fragmentField, fragments := range hit.Fragments {
+			dr.AddElement(gowd.NewStyledText(fragmentField, gowd.StrongText))
+			for _, fragment := range fragments {
+				dr.AddHTML(fragment, nil)
+			}
+		}
+		for otherFieldName, otherFieldValue := range hit.Fields {
+			if _, ok := hit.Fragments[otherFieldName]; !ok {
+				dr.AddElement(gowd.NewStyledText(otherFieldName, gowd.StrongText))
+				dr.AddElement(gowd.NewText(fmt.Sprintf("%v", otherFieldValue)))
+			}
+		}
+		divresults.AddElement(dr)
+		divresults.AddElement(gowd.NewElement("hr"))
+
+	}
+}
+
 func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventElement) {
 	input := a.ui.em["input-search"]
 	term := input.GetValue()
@@ -176,7 +222,8 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 		gowd.Alert(fmt.Sprintf("%v", err))
 		return
 	}
-
+	a.ui.em["button-search-more"].OnEvent(gowd.OnClick, a.buttonSearchMoreClicked)
+	gowd.ExecJS("attach_scroll_event('button-search-more')")
 	divresults := a.ui.em["div-search-results"]
 	divresults.RemoveElements()
 	summary := fmt.Sprintf("%d matches, showing %d through %d, took %s", a.results.Total, a.results.Request.From+1, a.results.Request.From+len(a.results.Hits), a.results.Took)

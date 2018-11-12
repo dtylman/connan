@@ -145,7 +145,7 @@ function set_progress(progress_id, value, total, label_id, text) {
         if (total == 0) {
             percentage = 0;
         } else {
-            percentage = value * 100 / total ;
+            percentage = value * 100 / total;
         }
         pbar.style.width = percentage + "%";
     }
@@ -154,6 +154,19 @@ function set_progress(progress_id, value, total, label_id, text) {
         label.innerHTML = text
     }
 }
+
+function attach_scroll_event(id) {
+    $(window).scroll(
+        function () {            
+            if ($(window).scrollTop() + $(window).height() > $(document).height() - 1) {
+                var input = document.getElementById(id);
+                input.value = $(window).scrollTop();
+                document.getElementById(id).click();
+            }
+        }
+    );
+}
+
 
 avoid_reload();
 maximize_window();
