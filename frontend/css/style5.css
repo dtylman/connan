@@ -248,3 +248,11 @@ a.article, a.article:hover {
     }
 
 }
+
+.thumb-search {
+    display: block;
+    max-width:150px;
+    max-height:150px;
+    width: auto;
+    height: auto;  
+}

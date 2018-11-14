@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -66,12 +67,17 @@ func (db *DB) AddDocumentAnalyzer(a Analyzer) {
 //NewDocument ...
 func (db *DB) NewDocument(path string) (*Document, error) {
 	doc := new(Document)
+	doc.Fields = make(map[string]string)
 	doc.Path = path
-	var err error
-	doc.Mime, err = mimeType(path)
+	fileInfo, err := os.Stat(path)
 	if err != nil {
-		log.Printf("Cannot get mime type for item '%v': %v", path, err)
+		return nil, err
 	}
+	if fileInfo.IsDir() {
+		return nil, fmt.Errorf("'%v' is a folder", path)
+	}
+	doc.Modified = fileInfo.ModTime()
+	doc.Size = fileInfo.Size()
 	for _, a := range db.analyzers {
 		err := a.Process(path, doc)
 		if err != nil {

@@ -1,0 +1,32 @@
+{
+  "libFolder": "/home/danny/Documents",
+  "DBFolder": "/tmp/connan.db",
+  "analyzers": [
+    {
+      "name": "file-info",
+      "command": "file -b [path]",
+      "timeout": 5,
+      "popluates": "type",
+      "conditions": null
+    },
+    {
+      "name": "file-mime",
+      "command": "file -b --mime-type [path]",
+      "timeout": 5,
+      "popluates": "mime",
+      "conditions": null
+    },
+    {
+      "name": "unoconv",
+      "command": "unoconv -f text --stdout [path]",
+      "timeout": 30,
+      "popluates": "content",
+      "conditions": [
+        {
+          "field": "mime",
+          "expression": "*document*"
+        }
+      ]
+    }
+  ]
+}

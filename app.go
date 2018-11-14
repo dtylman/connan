@@ -5,13 +5,11 @@ import (
 	"html"
 	"io/ioutil"
 	"log"
-	"path/filepath"
 	"time"
 
 	"github.com/blevesearch/bleve"
 	"github.com/dtylman/connan/db"
 	"github.com/dtylman/gowd"
-	"github.com/dtylman/gowd/bootstrap"
 )
 
 //UI holds the application UI
@@ -43,6 +41,9 @@ func NewApp() (*App, error) {
 	a.db, err = db.Open(a.config.DBFolder)
 	if err != nil {
 		return nil, err
+	}
+	for _, analyzer := range a.config.Analyzers {
+		a.db.AddDocumentAnalyzer(analyzer)
 	}
 	a.indexer, err = NewIndexer(a.db)
 	if err != nil {
@@ -115,7 +116,6 @@ func (a *App) buttonIndexerStartClicked(sender *gowd.Element, event *gowd.EventE
 
 func (a *App) buttonIndexerSaveClicked(sender *gowd.Element, event *gowd.EventElement) {
 	a.config.LibFolder = a.ui.em["input-connan-folder"].GetValue()
-	a.config.Tesseract = a.ui.em["input-tesseract"].GetValue()
 	err := a.config.Save()
 	if err != nil {
 		gowd.Alert(fmt.Sprintf("Failed to save settings: %v", err))
@@ -154,7 +154,6 @@ func (a *App) run() error {
 
 func (a *App) pageIndexerClicked(sender *gowd.Element, event *gowd.EventElement) {
 	a.ui.em["input-connan-folder"].SetValue(a.config.LibFolder)
-	a.ui.em["input-tesseract"].SetValue(a.config.Tesseract)
 	a.ui.content.SetElement(a.ui.pageIndexer)
 }
 
@@ -172,39 +171,21 @@ func (a *App) buttonSearchMoreClicked(sender *gowd.Element, event *gowd.EventEle
 		gowd.Alert(fmt.Sprintf("%v", err))
 		return
 	}
-	divresults := a.ui.em["div-search-results"]
+
+	a.renderSearchResults(a.ui.em["div-search-results"])
+
+}
+
+func (a *App) renderSearchResults(div *gowd.Element) {
+	btnsearchmore := a.ui.em["button-search-more"]
+	btnsearchmore.OnEvent(gowd.OnClick, a.buttonSearchMoreClicked)
+	// todo: check if there are more results before attaching event
+	gowd.ExecJS("attach_scroll_event('button-search-more')")
 
 	for _, hit := range a.results.Hits {
 		doc := a.db.Document(hit.ID)
-		link := bootstrap.NewLinkButton(filepath.Base(hit.ID))
-		link.SetAttribute("onclick", fmt.Sprintf("nw.Shell.openItem('%v');", doc.Path))
-		header := bootstrap.NewElement("h4", "heading-small mb-4")
-		header.AddElement(link)
-		header.AddHTML("&nbsp;", nil)
-		header.AddElement(gowd.NewStyledText(fmt.Sprintf("(%f)", hit.Score), gowd.ItalicText))
-		dr := bootstrap.NewElement("div", "card-body", header)
-		img := gowd.NewElement("img")
-		img.SetClass("rounded pull-right img-thumbnail")
-		img.SetAttribute("style", "height: 100px; width: 100px")
-		img.SetAttribute("src", "file:///"+doc.Path)
-		dr.AddElement(img)
-
-		//link.OnEvent(gowd.OnClick, a.buttonSearchClicked)
-		for fragmentField, fragments := range hit.Fragments {
-			dr.AddElement(gowd.NewStyledText(fragmentField, gowd.StrongText))
-			for _, fragment := range fragments {
-				dr.AddHTML(fragment, nil)
-			}
-		}
-		for otherFieldName, otherFieldValue := range hit.Fields {
-			if _, ok := hit.Fragments[otherFieldName]; !ok {
-				dr.AddElement(gowd.NewStyledText(otherFieldName, gowd.StrongText))
-				dr.AddElement(gowd.NewText(fmt.Sprintf("%v", otherFieldValue)))
-			}
-		}
-		divresults.AddElement(dr)
-		divresults.AddElement(gowd.NewElement("hr"))
-
+		card := NewDocumentCard(doc, hit)
+		div.AddElement(card.Element)
 	}
 }
 
@@ -222,44 +203,13 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 		gowd.Alert(fmt.Sprintf("%v", err))
 		return
 	}
-	a.ui.em["button-search-more"].OnEvent(gowd.OnClick, a.buttonSearchMoreClicked)
-	gowd.ExecJS("attach_scroll_event('button-search-more')")
 	divresults := a.ui.em["div-search-results"]
 	divresults.RemoveElements()
+
 	summary := fmt.Sprintf("%d matches, showing %d through %d, took %s", a.results.Total, a.results.Request.From+1, a.results.Request.From+len(a.results.Hits), a.results.Took)
-	divresults.AddElement(gowd.NewStyledText(summary, gowd.Heading4))
-	for _, hit := range a.results.Hits {
-		doc := a.db.Document(hit.ID)
-		link := bootstrap.NewLinkButton(filepath.Base(hit.ID))
-		link.SetAttribute("onclick", fmt.Sprintf("nw.Shell.openItem('%v');", doc.Path))
-		header := bootstrap.NewElement("h4", "heading-small mb-4")
-		header.AddElement(link)
-		header.AddHTML("&nbsp;", nil)
-		header.AddElement(gowd.NewStyledText(fmt.Sprintf("(%f)", hit.Score), gowd.ItalicText))
-		dr := bootstrap.NewElement("div", "card-body", header)
-		img := gowd.NewElement("img")
-		img.SetClass("rounded pull-right img-thumbnail")
-		img.SetAttribute("style", "height: 100px; width: 100px")
-		img.SetAttribute("src", "file:///"+doc.Path)
-		dr.AddElement(img)
+	a.ui.em["div-search-summary"].SetElement(gowd.NewStyledText(summary, gowd.Heading4))
 
-		//link.OnEvent(gowd.OnClick, a.buttonSearchClicked)
-		for fragmentField, fragments := range hit.Fragments {
-			dr.AddElement(gowd.NewStyledText(fragmentField, gowd.StrongText))
-			for _, fragment := range fragments {
-				dr.AddHTML(fragment, nil)
-			}
-		}
-		for otherFieldName, otherFieldValue := range hit.Fields {
-			if _, ok := hit.Fragments[otherFieldName]; !ok {
-				dr.AddElement(gowd.NewStyledText(otherFieldName, gowd.StrongText))
-				dr.AddElement(gowd.NewText(fmt.Sprintf("%v", otherFieldValue)))
-			}
-		}
-		divresults.AddElement(dr)
-		divresults.AddElement(gowd.NewElement("hr"))
-
-	}
+	a.renderSearchResults(divresults)
 }
 
 func (a *App) pageSearchClicked(sender *gowd.Element, event *gowd.EventElement) {

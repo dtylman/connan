@@ -7,13 +7,13 @@ import (
 )
 
 //OptionsFileName holds the default options config file
-var OptionsFileName = "connan.config"
+var OptionsFileName = "connan.config.json"
 
 // Options application options
 type Options struct {
-	LibFolder string `json:"libFolder"`
-	DBFolder  string `json:dbFolder`
-	Tesseract string `json:"tesseract"`
+	LibFolder string            `json:"libFolder"`
+	DBFolder  string            `json:dbFolder`
+	Analyzers []CommandAnalyzer `json:"analyzers"`
 }
 
 //Load loads options from file
@@ -22,7 +22,7 @@ func (o *Options) Load() error {
 	if err == os.ErrNotExist {
 		return nil
 	}
-	data, err := ioutil.ReadFile("connan.config")
+	data, err := ioutil.ReadFile(OptionsFileName)
 	if err != nil {
 		return err
 	}
@@ -31,9 +31,9 @@ func (o *Options) Load() error {
 
 //Save saves options to file
 func (o *Options) Save() error {
-	data, err := json.Marshal(o)
+	data, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile("connan.config", data, 0644)
+	return ioutil.WriteFile(OptionsFileName, data, 0644)
 }

@@ -7,20 +7,13 @@ import (
 	"path/filepath"
 
 	"github.com/dtylman/connan/db"
-	"github.com/dtylman/connan/tesseract"
 )
-
-//IndexerOptions ...
-type IndexerOptions struct {
-	reindex bool
-}
 
 //Indexer is the connan indexer
 type Indexer struct {
-	queued  int
-	db      *db.DB
-	worker  *db.Worker
-	Options IndexerOptions
+	queued int
+	db     *db.DB
+	worker *db.Worker
 }
 
 //NewIndexer returns a new indexer
@@ -28,7 +21,6 @@ func NewIndexer(database *db.DB) (*Indexer, error) {
 	i := new(Indexer)
 	i.queued = 0
 	i.db = database
-	i.db.AddDocumentAnalyzer(tesseract.NewAnalyzer())
 	i.worker = db.NewWorker(i.db)
 	return i, nil
 }
@@ -49,6 +41,10 @@ func (i *Indexer) Start(root string) error {
 }
 
 func (i *Indexer) walk(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 	if !i.worker.IsRunning() {
 		return errors.New("Worker stopped")
 	}
