@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/blevesearch/bleve/search"
 	"github.com/dtylman/connan/db"
@@ -12,9 +11,12 @@ import (
 
 //DocumentCard ...
 type DocumentCard struct {
-	Element *gowd.Element
-	doc     *db.Document
-	hit     *search.DocumentMatch
+	Element      *gowd.Element
+	doc          *db.Document
+	hit          *search.DocumentMatch
+	linkImage    *gowd.Element
+	linkContent  *gowd.Element
+	linkDocument *gowd.Element
 }
 
 //NewDocumentCard creates a new card
@@ -33,14 +35,21 @@ func NewDocumentCard(doc *db.Document, hit *search.DocumentMatch) *DocumentCard 
 }
 
 func (dc *DocumentCard) populateHeader(header *gowd.Element) {
-	linkTitle := header.AddElement(bootstrap.NewLinkButton(filepath.Base(dc.doc.Path)))
+	linkTitle := header.AddElement(bootstrap.NewLinkButton(dc.doc.Name()))
 	//link.OnEvent(gowd.OnClick)
 	linkTitle.SetAttribute("Title", "Open")
+	linkTitle.SetAttribute("onclick", fmt.Sprintf(`nw.Shell.openItem('%v');`, dc.doc.Path))
 
-	linkOpen := header.AddElement(bootstrap.NewLinkButton(""))
-	linkOpen.SetClass("mx-2")
-	linkOpen.AddElement(bootstrap.NewElement("i", "fas fa-link"))
-	linkOpen.SetAttribute("Title", "View")
+	linkFolder := header.AddElement(bootstrap.NewLinkButton(""))
+	linkFolder.SetClass("mx-2")
+	linkFolder.AddElement(bootstrap.NewElement("i", "fas fa-folder"))
+	linkFolder.SetAttribute("Title", "Show In Folder")
+	linkFolder.SetAttribute("onclick", fmt.Sprintf(`nw.Shell.showItemInFolder('%v');`, dc.doc.Path))
+
+	dc.linkContent = header.AddElement(bootstrap.NewLinkButton(""))
+	dc.linkContent.SetClass("mx-2")
+	dc.linkContent.AddElement(bootstrap.NewElement("i", "fas fa-eye"))
+	dc.linkContent.SetAttribute("Title", "View")
 
 	span := header.AddElement(bootstrap.NewElement("span", "badge badge-pill badge-info float-right"))
 	span.AddElement(gowd.NewText(fmt.Sprintf("%.2f", dc.hit.Score)))
@@ -48,20 +57,21 @@ func (dc *DocumentCard) populateHeader(header *gowd.Element) {
 
 func (dc *DocumentCard) populateBody(cardbody *gowd.Element) {
 	if dc.doc.IsImage() {
-		linkImage := cardbody.AddElement(bootstrap.NewLinkButton(""))
-		linkImage.SetClass("float-right")
-		linkImage.SetAttribute("Title", "View Image")
+		dc.linkImage = cardbody.AddElement(bootstrap.NewLinkButton(""))
+		dc.linkImage.SetClass("float-right")
+		dc.linkImage.SetAttribute("Title", "View Image")
 
-		image := linkImage.AddElement(bootstrap.NewElement("img", "img-thumbnail thumb-search"))
+		image := dc.linkImage.AddElement(bootstrap.NewElement("img", "img-thumbnail thumb-search"))
 		image.SetAttribute("src", fmt.Sprintf("file:///%s", dc.doc.Path))
 	}
 
-	hit := cardbody.AddElement(bootstrap.NewLinkButton(""))
-	hit.SetAttribute("Title", "View Content")
-	p := hit.AddElement(bootstrap.NewElement("p", "card-text"))
-
+	dc.linkDocument = cardbody.AddElement(bootstrap.NewLinkButton(""))
+	dc.linkDocument.SetAttribute("Title", "View Content")
 	for fragmentField, fragments := range dc.hit.Fragments {
-		p.AddHTML(fragmentField+": ", nil)
+		if fragmentField == "path" || fragmentField == "fields.type" || fragmentField == "fields.mime" {
+			continue
+		}
+		p := dc.linkDocument.AddElement(bootstrap.NewElement("p", "card-text small"))
 		for _, fragment := range fragments {
 			p.AddHTML(fragment, nil)
 		}

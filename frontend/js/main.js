@@ -159,7 +159,7 @@ function attach_scroll_event(id) {
     $(window).scroll(
         function () {            
             if ($(window).scrollTop() + $(window).height() > $(document).height() - 1) {
-                var input = document.getElementById(id);
+                var input = document.getElementById('scroll-value');
                 input.value = $(window).scrollTop();
                 document.getElementById(id).click();
             }

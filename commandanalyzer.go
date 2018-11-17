@@ -5,30 +5,22 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/dtylman/connan/db"
-	"github.com/gobwas/glob"
 )
 
 //Condition a condition in which analyzer will work
 type Condition struct {
-	Field      string `json:"field"`
-	Expression string `json:"expression"`
-	g          glob.Glob
+	Field   string `json:"field"`
+	Pattern string `json:"regexp"`
 }
 
-//Match matches the doc with the field glob expression
+//Match returns true if document matches the condition
 func (c *Condition) Match(doc *db.Document) (bool, error) {
-	var err error
-	if c.g == nil {
-		c.g, err = glob.Compile(c.Expression)
-		if err != nil {
-			return false, err
-		}
-	}
-	return c.g.Match(doc.GetField(c.Field)), nil
+	return regexp.MatchString(c.Pattern, doc.GetField(c.Field))
 }
 
 const defaultTimeout = 60
@@ -51,15 +43,18 @@ func (ca CommandAnalyzer) Process(path string, doc *db.Document) error {
 	for _, cond := range ca.Conditions {
 		m, err := cond.Match(doc)
 		if err != nil {
-			return fmt.Errorf("Condition '%v' on field '%v' failed on doc '%v': '%v'", cond.Expression, cond.Field,
-				doc.Path, err)
+			return fmt.Errorf("Condition '%v' failed on doc '%v': '%v'", cond, doc, err)
 		}
 		if !m {
-			log.Printf("Document '%v' does not match condition '%v' on field '%v'", doc.Path, cond.Expression, cond.Field)
+			log.Printf("Document '%v' does not match condition '%v'", doc.Path, cond)
 			return nil
 		}
 	}
-	val := ca.execute(path)
+	val, err := ca.execute(path)
+	log.Printf("Error:%v output: %v", err, val)
+	if err != nil {
+		return err
+	}
 	doc.SetField(ca.PopulateField, val)
 	return nil
 }
@@ -69,23 +64,32 @@ func (ca CommandAnalyzer) Name() string {
 	return ca.AnalyzerName
 }
 
-func (ca *CommandAnalyzer) execute(path string) string {
-	line := strings.Replace(ca.Command, "[path]", path, -1)
-	log.Printf("Executing '%v'", line)
-
-	command := strings.Fields(line)
-
+func (ca *CommandAnalyzer) execute(path string) (string, error) {
+	command := strings.Fields(ca.Command)
+	for i := range command {
+		if command[i] == "[path]" {
+			command[i] = path
+		}
+	}
+	line := strings.Join(command, " ")
+	var out []byte
+	var err error
+	log.Printf("exec: %v: (%v) '%v'", line, string(out), err)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ca.Timeout)*time.Second)
 	defer cancel() // The cancel should be deferred so resources are cleaned up
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 
-	out, err := cmd.Output()
+	out, err = cmd.Output()
 	if err != nil {
-		log.Printf("'%v' failed: '%v'", line, err)
+		return "", fmt.Errorf("'%v' failed: '%v'", line, err)
 	}
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Printf("'%v' timeout: '%v'", line, ctx.Err())
+		return "", fmt.Errorf("'%v' timeout: '%v'", line, ctx.Err())
 	}
-	return string(out)
+
+	if cmd.ProcessState != nil && !cmd.ProcessState.Success() {
+		return "", fmt.Errorf("Process failed: %v", string(out))
+	}
+	return string(out), nil
 }

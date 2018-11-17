@@ -13,7 +13,7 @@ func TestCondition_Match(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	c := Condition{Expression: "*.github.com", Field: "Location"}
+	c := Condition{Pattern: "github.com", Field: "Location"}
 	doc, err := db.NewDocument("commandanalyzer_test.go")
 	assert.NoError(t, err)
 	b, err := c.Match(doc)

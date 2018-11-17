@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -57,6 +58,10 @@ func (d *Document) Type() string {
 
 //IsImage returns true if document is an image
 func (d *Document) IsImage() bool {
-	return true
-	//return strings.HasPrefix(d.GetField("mime"), "image")
+	return strings.HasPrefix(d.GetField("mime"), "image")
+}
+
+//Name returns the document name
+func (d *Document) Name() string {
+	return filepath.Base(d.Path)
 }

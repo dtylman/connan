@@ -12,5 +12,6 @@
 *.out
 connan
 connan.db/
+connan.testdb/
 connan.log
 connan.config

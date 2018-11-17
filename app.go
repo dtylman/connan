@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"github.com/blevesearch/bleve"
 	"github.com/dtylman/connan/db"
 	"github.com/dtylman/gowd"
+	"github.com/dtylman/gowd/bootstrap"
 )
 
 //UI holds the application UI
@@ -136,7 +139,7 @@ func (a *App) loadPage(fileName string) (*gowd.Element, error) {
 	return e, nil
 }
 
-func (a *App) close() {
+func (a *App) close(ctx context.Context, s os.Signal) {
 	err := a.config.Save()
 	if err != nil {
 		log.Println(err)
@@ -146,8 +149,7 @@ func (a *App) close() {
 }
 
 func (a *App) run() error {
-	defer a.close()
-
+	defer a.close(nil, nil)
 	//start the ui loop
 	return gowd.Run(a.ui.body)
 }
@@ -161,32 +163,83 @@ func (a *App) pageBackupClicked(sender *gowd.Element, event *gowd.EventElement) 
 	a.ui.content.SetElement(a.ui.pageBackup)
 }
 
+func (a *App) scrollToLastPosition() {
+	input := a.ui.em["scroll-value"]
+	if input != nil {
+		val := input.GetValue()
+		if val != "" {
+			gowd.ExecJS(fmt.Sprintf(`$(window.scrollTo(0,%v))`, val))
+		}
+	}
+}
+
 func (a *App) buttonSearchMoreClicked(sender *gowd.Element, event *gowd.EventElement) {
-	gowd.ExecJS(fmt.Sprintf(`$(window.scrollTo(0,%v))`, sender.GetValue()))
+	if !a.hasMoreResults() {
+		return
+	}
 	req := a.results.Request
-	req.From = req.From + a.results.Hits.Len()
+	req.From += req.Size
 	var err error
 	a.results, err = a.indexer.db.Bleve.Search(req)
 	if err != nil {
 		gowd.Alert(fmt.Sprintf("%v", err))
 		return
 	}
-
 	a.renderSearchResults(a.ui.em["div-search-results"])
+}
 
+//hasMoreResults is true if we can query the same search again with new results
+func (a *App) hasMoreResults() bool {
+	if a.results == nil {
+		return false
+	}
+	return uint64((a.results.Request.From + a.results.Hits.Len())) <= a.results.Total
 }
 
 func (a *App) renderSearchResults(div *gowd.Element) {
-	btnsearchmore := a.ui.em["button-search-more"]
-	btnsearchmore.OnEvent(gowd.OnClick, a.buttonSearchMoreClicked)
-	// todo: check if there are more results before attaching event
-	gowd.ExecJS("attach_scroll_event('button-search-more')")
-
+	if a.hasMoreResults() {
+		btnsearchmore := a.ui.em["button-search-more"]
+		btnsearchmore.OnEvent(gowd.OnClick, a.buttonSearchMoreClicked)
+		gowd.ExecJS("attach_scroll_event('button-search-more')")
+	} else {
+		gowd.ExecJS(`$(window).unbind("scroll");`)
+	}
 	for _, hit := range a.results.Hits {
 		doc := a.db.Document(hit.ID)
 		card := NewDocumentCard(doc, hit)
 		div.AddElement(card.Element)
+		card.linkContent.Object = doc
+		card.linkContent.OnEvent(gowd.OnClick, a.documentContentClicked)
+		if card.linkImage != nil {
+			card.linkImage.Object = doc
+			card.linkImage.OnEvent(gowd.OnClick, a.documentImageClicked)
+		}
 	}
+	a.scrollToLastPosition()
+}
+
+func (a App) documentImageClicked(sender *gowd.Element, event *gowd.EventElement) {
+	doc := sender.Object.(*db.Document)
+	body := bootstrap.NewElement("div", "")
+
+	img := body.AddElement(bootstrap.NewElement("img", "img-fluid"))
+	img.SetAttribute("src", fmt.Sprintf("file://%s", doc.Path))
+	a.showModal(doc.Name(), body)
+}
+
+func (a App) documentContentClicked(sender *gowd.Element, event *gowd.EventElement) {
+	doc := sender.Object.(*db.Document)
+	body := bootstrap.NewElement("div", "")
+
+	body.AddElement(gowd.NewText(doc.GetField("content")))
+	a.showModal(doc.Name(), body)
+}
+
+func (a *App) showModal(title string, body *gowd.Element) {
+	a.scrollToLastPosition()
+	a.ui.em["modal-body"].SetElement(body)
+	a.ui.em["modal-title"].SetText(title)
+	gowd.ExecJS(`$('#modal-default').modal({keyboard:true,focus:true});`)
 }
 
 func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventElement) {
@@ -194,6 +247,7 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 	term := input.GetValue()
 	input.AutoFocus()
 	input.SetValue("")
+	a.ui.em["scroll-value"].SetValue("")
 
 	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(term))
 	req.Highlight = bleve.NewHighlightWithStyle("html")

@@ -1,5 +1,5 @@
 {
-  "libFolder": "/home/danny/Documents",
+  "libFolder": "/home/danny/Documents/work/cloud_patent",
   "DBFolder": "/tmp/connan.db",
   "analyzers": [
     {
@@ -24,7 +24,7 @@
       "conditions": [
         {
           "field": "mime",
-          "expression": "*document*"
+          "regexp": "document"
         }
       ]
     }
