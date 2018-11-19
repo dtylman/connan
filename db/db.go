@@ -52,7 +52,7 @@ func Open(path string) (*DB, error) {
 
 //Close closes the database
 func (db *DB) Close() error {
-	log.Printf("Closing Storm %v", db.Storm.Path)
+	log.Printf("Closing Storm %v", db.Storm.Bolt.Path())
 	err := db.Storm.Close()
 	if err != nil {
 		return err
