@@ -7,16 +7,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/mapping"
 	"github.com/iancoleman/strcase"
 )
 
 //Document ...
 type Document struct {
-	Path     string            `json:"path" storm:"id"`
-	Analyzed time.Time         `json:"analyzed"`
-	Modified time.Time         `json:"modified"`
-	Size     int64             `json:"size"`
-	Fields   map[string]string `json:"fields"`
+	Path     string               `json:"path" storm:"id"`
+	Analysis map[string]time.Time `json:"analysis"`
+	Modified time.Time            `json:"modified"`
+	Size     int64                `json:"size"`
+	Fields   map[string]string    `json:"fields"`
 }
 
 func (d *Document) String() string {
@@ -64,4 +66,18 @@ func (d *Document) IsImage() bool {
 //Name returns the document name
 func (d *Document) Name() string {
 	return filepath.Base(d.Path)
+}
+
+//BleveType returns bleve type
+func (d Document) BleveType() string {
+	return "document"
+}
+
+func (d *Document) bleveMapping() *mapping.DocumentMapping {
+	dm := bleve.NewDocumentStaticMapping()
+	dm.AddFieldMappingsAt("fields", bleve.NewTextFieldMapping())
+	dm.AddFieldMappingsAt("modified", bleve.NewDateTimeFieldMapping())
+	dm.AddFieldMappingsAt("path", bleve.NewTextFieldMapping())
+	dm.AddFieldMappingsAt("size", bleve.NewNumericFieldMapping())
+	return dm
 }

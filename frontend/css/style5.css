@@ -249,10 +249,32 @@ a.article, a.article:hover {
 
 }
 
+/* conann: stuff */
 .thumb-search {
     display: block;
     max-width:150px;
     max-height:150px;
     width: auto;
     height: auto;  
+}
+
+.loader {
+    animation: spin 2s linear infinite;
+    border: 16px solid #f3f3f3; /* Light grey */
+    border-top: 16px solid #3498db; /* Blue */
+    border-radius: 50%;
+    border-top-color: #000;
+    display: block;    
+    height: 120px;    
+    margin: 15px auto 35px auto;
+    position: relative;
+    text-align: center;
+    width: 120px;
+    z-index: -1;
+    -webkit-animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

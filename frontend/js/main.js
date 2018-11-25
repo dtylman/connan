@@ -4,9 +4,8 @@ var child;
 var fails = 0;
 var goBinary = "./connan";
 
-function setPage(html) {
-    const container = document.getElementById("app");
-    app.innerHTML = html;
+function set_content(html) {
+    app.innerHTML = html
     //set focus for autofocus element
     var elem = document.querySelector("input[autofocus]");
     if (elem != null) {
@@ -14,8 +13,12 @@ function setPage(html) {
     }
 }
 
+function show_loader(){
+    app.innerHTML += "<div class='loader'><div>";
+}
+
 function body_message(msg) {
-    setPage('<h1>' + msg + '</h1>');
+    set_content('<h1>' + msg + '</h1><div class="loader"></div>');
 }
 
 function start_process() {
@@ -40,7 +43,7 @@ function start_process() {
                 data = data.substr(1);
                 eval(data);
             } else {
-                setPage(data);
+                set_content(data);
             }
         } catch (ex) {
             console.log(ex);
@@ -52,12 +55,12 @@ function start_process() {
     });
 
     child.on('close', (code) => {
-        body_message(`process exited with code ${code}`);
+        alert(`process exited with code ${code}`);
         restart_process();
     });
 
     child.on('error', (err) => {
-        body_message('Failed to start child process.');
+        alert('Failed to start child process.');
         restart_process();
     });
 }
@@ -101,13 +104,14 @@ function element_by_tag_as_array(tag) {
     return items;
 }
 
-function fire_event(name, sender) {
+function fire_event(name, sender) {    
     var msg = {
         name: name,
         sender: element_as_object(sender),
         inputs: element_by_tag_as_array("input").concat(element_by_tag_as_array("select"))
     }
     child.stdin.write(JSON.stringify(msg));
+    show_loader();
     console.log(JSON.stringify(msg));
 }
 
@@ -157,7 +161,7 @@ function set_progress(progress_id, value, total, label_id, text) {
 
 function attach_scroll_event(id) {
     $(window).scroll(
-        function () {            
+        function () {
             if ($(window).scrollTop() + $(window).height() > $(document).height() - 1) {
                 var input = document.getElementById('scroll-value');
                 input.value = $(window).scrollTop();

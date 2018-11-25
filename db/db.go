@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/asdine/storm"
 	"github.com/blevesearch/bleve"
@@ -41,7 +42,10 @@ func Open(path string) (*DB, error) {
 	if err == nil {
 		db.Bleve, err = bleve.Open(blevepath)
 	} else {
-		db.Bleve, err = bleve.New(blevepath, bleve.NewIndexMapping())
+		d := Document{}
+		im := bleve.NewIndexMapping()
+		im.AddDocumentMapping(d.BleveType(), d.bleveMapping())
+		db.Bleve, err = bleve.New(blevepath, im)
 	}
 	if err != nil {
 		return nil, err
@@ -66,10 +70,18 @@ func (db *DB) AddDocumentAnalyzer(a Analyzer) {
 	db.analyzers = append(db.analyzers, a)
 }
 
+/*
+Create Document process:
+Load from DB
+CHeck what to process
+Save
+*/
+
 //NewDocument ...
 func (db *DB) NewDocument(path string) (*Document, error) {
 	doc := new(Document)
 	doc.Fields = make(map[string]string)
+	doc.Analysis = make(map[string]time.Time)
 	doc.Path = path
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -81,9 +93,15 @@ func (db *DB) NewDocument(path string) (*Document, error) {
 	doc.Modified = fileInfo.ModTime()
 	doc.Size = fileInfo.Size()
 	for _, a := range db.analyzers {
-		err := a.Process(path, doc)
-		if err != nil {
-			log.Printf("%v failed on '%v': %v", a.Name(), path, err)
+		last, ok := doc.Analysis[a.Name()]
+		if !ok || (doc.Modified.After(last)) {
+			err := a.Process(path, doc)
+			if err != nil {
+				log.Printf("%v failed on '%v': %v", a.Name(), path, err)
+			}
+			doc.Analysis[a.Name()] = time.Now()
+		} else {
+			log.Printf("Skipping %v: no change since last analysis on '%v'", a.Name(), path)
 		}
 	}
 	return doc, nil
