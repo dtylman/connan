@@ -2,8 +2,11 @@ package db
 
 import (
 	"log"
+	"os"
 	"sync"
 	"time"
+
+	"github.com/asdine/storm"
 )
 
 //Worker db worker indexes items in the db queue.
@@ -63,16 +66,33 @@ func (w *Worker) work() {
 			time.Sleep(time.Second / 2)
 		} else {
 			lastItem = time.Now()
-			log.Printf("Processing %v", *item)
-			doc, err := w.db.NewDocument(*item)
+			err := w.process(*item)
 			if err != nil {
-				log.Printf("Failed to create a document from '%v': '%v'", *item, err)
-			} else {
-				err = w.db.Save(doc)
-				if err != nil {
-					log.Printf("Failed to index %v: %v", doc, err)
-				}
+				log.Printf("Failed to process '%v': %v", *item, err)
 			}
 		}
 	}
+}
+
+func (w *Worker) process(path string) error {
+	var doc Document
+	log.Printf("Processing '%v'", path)
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	err = w.db.Storm.One("Path", path, &doc)
+	if err == storm.ErrNotFound {
+		d, err := NewDocument(path, fileInfo)
+		if err != nil {
+			return err
+		}
+		doc = *d
+	}
+	doc.UpdateFileInfo(fileInfo)
+	updated := doc.Analyze(w.db.analyzers)
+	if updated {
+		return w.db.Save(&doc)
+	}
+	return nil
 }

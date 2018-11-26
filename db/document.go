@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -21,8 +23,46 @@ type Document struct {
 	Fields   map[string]string    `json:"fields"`
 }
 
+//NewDocument ...
+func NewDocument(path string, fileInfo os.FileInfo) (*Document, error) {
+	if fileInfo.IsDir() {
+		return nil, fmt.Errorf("'%v' is a folder", path)
+	}
+	doc := new(Document)
+	doc.Fields = make(map[string]string)
+	doc.Analysis = make(map[string]time.Time)
+	doc.Path = path
+	doc.UpdateFileInfo(fileInfo)
+	return doc, nil
+}
+
+//UpdateFileInfo updates properties from file info
+func (d *Document) UpdateFileInfo(fileInfo os.FileInfo) {
+	d.Modified = fileInfo.ModTime()
+	d.Size = fileInfo.Size()
+}
+
+//Analyze performs analysis
+func (d *Document) Analyze(analyzers []Analyzer) bool {
+	dirty := false
+	for _, a := range analyzers {
+		last, ok := d.Analysis[a.Name()]
+		if !ok || (d.Modified.After(last)) {
+			err := a.Process(d.Path, d)
+			if err != nil {
+				log.Printf("%v failed on '%v': %v", a.Name(), d.Path, err)
+			}
+			d.Analysis[a.Name()] = time.Now()
+			dirty = true
+		} else {
+			log.Printf("Skipping %v: no change since last analysis on '%v'", a.Name(), d.Path)
+		}
+	}
+	return dirty
+}
+
 func (d *Document) String() string {
-	return fmt.Sprintf("%v (%v)", d.Path, d.Type())
+	return fmt.Sprintf("%v (%v)", d.Path, d.Mime())
 }
 
 //SetField sets document field
@@ -51,6 +91,16 @@ func (d *Document) GetField(name string) string {
 //Content returns the doc content
 func (d *Document) Content() string {
 	return d.GetField("content")
+}
+
+//SetContent sets content
+func (d *Document) SetContent(content string) {
+	d.SetField("content", content)
+}
+
+//Mime returns the mime-typeo of the doc
+func (d *Document) Mime() string {
+	return d.GetField("mime")
 }
 
 //Type returns doc type

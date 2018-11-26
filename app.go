@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	"github.com/blevesearch/bleve/search/query"
 	"github.com/dtylman/connan/db"
 	"github.com/dtylman/gowd"
 	"github.com/dtylman/gowd/bootstrap"
@@ -48,6 +49,7 @@ func NewApp() (*App, error) {
 	for _, analyzer := range a.config.Analyzers {
 		a.db.AddDocumentAnalyzer(analyzer)
 	}
+	a.db.AddDocumentAnalyzer(PlainTextAnalyzer{})
 	a.indexer, err = NewIndexer(a.db)
 	if err != nil {
 		return nil, err
@@ -248,8 +250,13 @@ func (a *App) buttonSearchGoClicked(sender *gowd.Element, event *gowd.EventEleme
 	input.AutoFocus()
 	input.SetValue("")
 	a.ui.em["scroll-value"].SetValue("")
-
-	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(term))
+	var q query.Query
+	if term == "" || term == "*" {
+		q = bleve.NewMatchAllQuery()
+	} else {
+		q = bleve.NewQueryStringQuery(term)
+	}
+	req := bleve.NewSearchRequest(q)
 	req.Highlight = bleve.NewHighlightWithStyle("html")
 	var err error
 	a.results, err = a.indexer.db.Bleve.Search(req)

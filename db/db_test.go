@@ -30,7 +30,9 @@ func TestDB_NewDocument(t *testing.T) {
 	assert.NotNil(t, db)
 	defer db.Close()
 	path := "db_test.go"
-	doc, err := db.NewDocument(path)
+	fileInfo, err := os.Stat(path)
+	assert.NoError(t, err)
+	doc, err := NewDocument(path, fileInfo)
 	assert.Nil(t, err)
 	err = db.Save(doc)
 	assert.NoError(t, err)
@@ -48,7 +50,10 @@ func TestDB_Save(t *testing.T) {
 	bc, err := db.Bleve.DocCount()
 	assert.NoError(t, err)
 	assert.EqualValues(t, 0, bc)
-	doc, err := db.NewDocument("db_test.go")
+	path := "db_test.go"
+	fileInfo, err := os.Stat(path)
+	assert.NoError(t, err)
+	doc, err := NewDocument(path, fileInfo)
 	assert.NoError(t, err)
 	err = db.Save(doc)
 	assert.NoError(t, err)

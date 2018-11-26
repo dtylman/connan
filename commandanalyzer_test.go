@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"github.com/dtylman/connan/db"
@@ -8,13 +9,16 @@ import (
 )
 
 func TestCondition_Match(t *testing.T) {
-	db, err := db.Open("connan.testdb")
+	connandb, err := db.Open("connan.testdb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer connandb.Close()
 	c := Condition{Pattern: "github.com", Field: "Location"}
-	doc, err := db.NewDocument("commandanalyzer_test.go")
+	path := "commandanalyzer_test.go"
+	fileInfo, err := os.Stat(path)
+	assert.NoError(t, err)
+	doc, err := db.NewDocument(path, fileInfo)
 	assert.NoError(t, err)
 	b, err := c.Match(doc)
 	assert.False(t, b)
