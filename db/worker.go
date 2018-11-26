@@ -5,8 +5,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/asdine/storm"
 )
 
 //Worker db worker indexes items in the db queue.
@@ -75,24 +73,22 @@ func (w *Worker) work() {
 }
 
 func (w *Worker) process(path string) error {
-	var doc Document
 	log.Printf("Processing '%v'", path)
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-	err = w.db.Storm.One("Path", path, &doc)
-	if err == storm.ErrNotFound {
-		d, err := NewDocument(path, fileInfo)
-		if err != nil {
-			return err
-		}
-		doc = *d
+	doc, err := w.db.Document(path)
+	if err != nil {
+		doc, err = NewDocument(path, fileInfo)
+	}
+	if err != nil {
+		return err
 	}
 	doc.UpdateFileInfo(fileInfo)
 	updated := doc.Analyze(w.db.analyzers)
 	if updated {
-		return w.db.Save(&doc)
+		return w.db.Save(doc)
 	}
 	return nil
 }

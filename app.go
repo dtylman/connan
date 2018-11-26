@@ -207,7 +207,11 @@ func (a *App) renderSearchResults(div *gowd.Element) {
 		gowd.ExecJS(`$(window).unbind("scroll");`)
 	}
 	for _, hit := range a.results.Hits {
-		doc := a.db.Document(hit.ID)
+		doc, err := a.db.Document(hit.ID)
+		if err != nil {
+			log.Printf("Failed load doc '%v': %v", hit.ID, err)
+			continue
+		}
 		card := NewDocumentCard(doc, hit)
 		div.AddElement(card.Element)
 		card.linkContent.Object = doc

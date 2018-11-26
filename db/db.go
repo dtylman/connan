@@ -86,11 +86,11 @@ func (db *DB) DocumentExists(path string) bool {
 }
 
 //Document returns a document for path or nil if not found
-func (db *DB) Document(path string) *Document {
+func (db *DB) Document(path string) (*Document, error) {
 	var doc Document
 	err := db.Storm.One("Path", path, &doc)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &doc
+	return &doc, nil
 }
