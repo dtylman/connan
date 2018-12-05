@@ -25,8 +25,8 @@ jobs:
       - run: zip connan_win64.zip /home/circleci/build/connan/win64/*
       - run: zip connan_osx64.zip /home/circleci/build/connan/osx64/*
       - store_artifacts:
-        path: connan_win64.zip
+          path: connan_win64.zip
       - store_artifacts:
-        path: connan_osx64.zip        
+          path: connan_osx64.zip        
       - store_artifacts:
-        path: connan_linux64.zip          
+          path: connan_linux64.zip          
