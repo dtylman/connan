@@ -20,10 +20,10 @@ jobs:
       - run: ~/node_modules/nw-builder/bin/nwbuild -p win64,osx64,linux64 /go/src/github.com/dtylman/connan/      
       - run: GOOS=windows go build -o ~/build/connan/win64/connancmd.exe
       - run: GOOS=darwin go build -o ~/build/connan/osx64/connancmd
-      - run: go build o ~/build/connan/linux64/connancmd
-      - run: zip ~/connan_linux64.zip /home/circleci/build/connan/linux64/*
-      - run: zip ~/connan_win64.zip /home/circleci/build/connan/win64/*
-      - run: zip ~/connan_osx64.zip /home/circleci/build/connan/osx64/*
+      - run: go build -o ~/build/connan/linux64/connancmd
+      - run: zip ~/connan_linux64.zip ~/build/connan/linux64/*
+      - run: zip ~/connan_win64.zip ~/build/connan/win64/*
+      - run: zip ~/connan_osx64.zip ~/build/connan/osx64/*
       - store_artifacts:
           path: ~/connan_win64.zip
       - store_artifacts:
