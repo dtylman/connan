@@ -18,7 +18,7 @@ jobs:
       - run: go get -v -t -d ./...
       - run: go test -v ./...
       - run: GOOS=windows go build
-      - run: GOOS=darwin go build -o connan.darwin build 
+      - run: GOOS=darwin go build -o connan.darwin 
       - run: go build
       - run: /home/circleci/node_modules/nw-builder/bin/nwbuild -p win64,osx64,linux64 /go/src/github.com/dtylman/connan/      
       - run: zip connan_linux64.zip /home/circleci/build/connan/linux64/*
